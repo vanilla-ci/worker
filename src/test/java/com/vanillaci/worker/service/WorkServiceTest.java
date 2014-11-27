@@ -18,9 +18,84 @@ public class WorkServiceTest extends BaseTest {
 
 	private static ThreadLocal<String> valueToSet = new ThreadLocal<>();
 
+	@Before
+	public void setUp() {
+		valueToSet.remove();
+	}
+
 	@After
 	public void tearDown() {
 		valueToSet.remove();
+	}
+
+	@Test
+	public void testTerminate() {
+		Map<String, String> workParameters = new HashMap<>();
+
+		List<WorkStepMessage> steps = ImmutableList.of(
+			new WorkStepMessage(TerminateStep.class.getName(), ImmutableMap.of()),
+			new WorkStepMessage(MethodInvokeStep.class.getName(), ImmutableMap.of(
+				"className", getClass().getName(),
+				"methodName", "methodToInvoke",
+				"value", "this shouldn't be set"
+			))
+		);
+
+		List<WorkStepMessage> postSteps = ImmutableList.of();
+
+		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
+
+		workService.doWork(workMessage);
+
+		Assert.assertNull(valueToSet.get());
+	}
+
+
+	@Test
+	public void testTerminate_postStillRuns() {
+		Map<String, String> workParameters = new HashMap<>();
+
+		List<WorkStepMessage> steps = ImmutableList.of(
+			new WorkStepMessage(TerminateStep.class.getName(), ImmutableMap.of())
+		);
+
+		List<WorkStepMessage> postSteps = ImmutableList.of(
+			new WorkStepMessage(MethodInvokeStep.class.getName(), ImmutableMap.of(
+				"className", getClass().getName(),
+				"methodName", "methodToInvoke",
+				"value", "this should be set"
+			))
+		);
+
+		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
+
+		workService.doWork(workMessage);
+
+		Assert.assertEquals("all post build steps should be called", "this should be set", valueToSet.get());
+	}
+
+	@Test
+	public void testTerminate_allPostStillRuns() {
+		Map<String, String> workParameters = new HashMap<>();
+
+		List<WorkStepMessage> steps = ImmutableList.of(
+			new WorkStepMessage(TerminateStep.class.getName(), ImmutableMap.of())
+		);
+
+		List<WorkStepMessage> postSteps = ImmutableList.of(
+			new WorkStepMessage(DieStep.class.getName(), ImmutableMap.of()),
+			new WorkStepMessage(MethodInvokeStep.class.getName(), ImmutableMap.of(
+				"className", getClass().getName(),
+				"methodName", "methodToInvoke",
+				"value", "this should be set"
+			))
+		);
+
+		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
+
+		workService.doWork(workMessage);
+
+		Assert.assertEquals("all post build steps should be called", "this should be set", valueToSet.get());
 	}
 
 	@Test

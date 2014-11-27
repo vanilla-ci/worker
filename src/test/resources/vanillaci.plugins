@@ -1,1 +1,3 @@
 com.vanillaci.worker.testplugins.MethodInvokeStep
+com.vanillaci.worker.testplugins.TerminateStep
+com.vanillaci.worker.testplugins.DieStep

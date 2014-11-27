@@ -90,7 +90,7 @@ public class WorkService {
 
 		try {
 			// Make sure the before didn't terminate the work
-			if(!workContext.getTerminate()) {
+			if(workContext.getState() == WorkState.POST_STEPS || !workContext.getTerminate()) {
 				// Since the befores are allowed to change the step that is actually executed, make sure we execute that one.
 				WorkStep overwrittenStep = workContext.getWorkStep();
 				if(overwrittenStep != workStep) {
