@@ -22,18 +22,18 @@ public class WorkService {
 	public void doWork(WorkMessage workMessage) {
 		logger.info("starting work: " + workMessage.getId());
 		try {
-			Map<String, String> parameters = workMessage.getParameters();
+			Map<String, String> workParameters = workMessage.getParameters();
 
 			try {
 				List<WorkStepMessage> steps = workMessage.getSteps();
 				for (WorkStepMessage step : steps) {
-					executeStep(workMessage, step, parameters);
+					executeStep(workMessage, step, workParameters);
 				}
 			} finally {
 				List<WorkStepMessage> postSteps = workMessage.getPostSteps();
 				for (WorkStepMessage postStep : postSteps) {
 					try {
-						executeStep(workMessage, postStep, parameters);
+						executeStep(workMessage, postStep, workParameters);
 					} catch (Exception e) {
 						logger.info("Exception running post work step: " + workMessage.getId(), e);
 					}
@@ -44,11 +44,16 @@ public class WorkService {
 		}
 	}
 
-	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> parameters) {
-		Map<String, String> allParameters = ImmutableMap.<String, String>builder()
-			.putAll(parameters)
-			.putAll(step.getParameters())
-			.build();
+	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters) {
+		Map<String, String> stepParameters = step.getParameters();
+		ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder();
+		builder.putAll(stepParameters);
+
+		workParameters.entrySet().stream()
+			.filter(entry -> !stepParameters.containsKey(entry.getKey()))
+			.forEach(entry -> builder.put(entry.getKey(), entry.getValue()));
+
+		ImmutableMap<String, String> allParameters = builder.build();
 
 		WorkStep workStep = pluginService.getWorkStep(step.getName());
 		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters);
