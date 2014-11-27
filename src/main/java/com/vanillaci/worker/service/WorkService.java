@@ -115,7 +115,7 @@ public class WorkService {
 			try {
 				workStepInterceptor.before(workContext);
 			} catch (Exception e) {
-				logger.info("Exception running before " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
+				logger.info("Exception running 'before' " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
 				workContext.setWorkStatus(WorkStatus.ERROR);
 				workContext.setTerminate(true);
 			}
@@ -127,7 +127,7 @@ public class WorkService {
 			try {
 				workStepInterceptor.after(workContext);
 			} catch (Exception e) {
-				logger.info("Exception running after " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
+				logger.info("Exception running 'after' " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
 				workContext.setWorkStatus(WorkStatus.ERROR);
 				workContext.setTerminate(true);
 			}
