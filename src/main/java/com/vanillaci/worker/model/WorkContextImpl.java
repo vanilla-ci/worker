@@ -17,12 +17,20 @@ public class WorkContextImpl implements WorkContext {
 	private WorkService.Status workStatus;
 	private WorkStep workStep;
 
-	public WorkContextImpl(WorkMessage workMessage, WorkStep workStep, Map<String, String> parameters, Map<String, String> addedParameters, WorkService.Status currentStatus) {
+	private final int currentStep;
+	private final int totalSteps;
+	private final WorkState state;
+
+	public WorkContextImpl(WorkMessage workMessage, WorkStep workStep, Map<String, String> parameters, Map<String, String> addedParameters, WorkService.Status currentStatus, int currentStep, int totalSteps, WorkState state) {
 		this.workMessage = workMessage;
 		this.workStep = workStep;
 		this.parameters = parameters;
 		this.addedParameters = addedParameters;
 		this.workStatus = currentStatus;
+
+		this.currentStep = currentStep;
+		this.totalSteps = totalSteps;
+		this.state = state;
 	}
 
 	@Override
@@ -76,5 +84,20 @@ public class WorkContextImpl implements WorkContext {
 	@Override
 	public void setTerminate(boolean terminate) {
 		workStatus.setTerminate(terminate);
+	}
+
+	@Override
+	public int getCurrentStep() {
+		return currentStep;
+	}
+
+	@Override
+	public int getTotalSteps() {
+		return totalSteps;
+	}
+
+	@Override
+	public WorkState getState() {
+		return state;
 	}
 }

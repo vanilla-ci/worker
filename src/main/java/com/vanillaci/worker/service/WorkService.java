@@ -31,9 +31,14 @@ public class WorkService {
 
 			try {
 				List<WorkStepMessage> steps = workMessage.getSteps();
+
+				int currentStep = 0;
+				final int totalSteps = steps.size();
+
 				for (WorkStepMessage step : steps) {
+					currentStep++;
 					try {
-						executeStep(workMessage, step, workParameters, addedParameters, status);
+						executeStep(workMessage, step, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.STEPS);
 					} catch (Exception e) {
 						logger.info("Exception running work step: " + workMessage.getId() + " " + step.getName(), e);
 						status.setWorkStatus(WorkStatus.ERROR);
@@ -49,9 +54,14 @@ public class WorkService {
 				logger.info("Running post steps: " + workMessage.getId());
 
 				List<WorkStepMessage> postSteps = workMessage.getPostSteps();
+
+				int currentStep = 0;
+				final int totalSteps = postSteps.size();
+
 				for (WorkStepMessage postStep : postSteps) {
+					currentStep++;
 					try {
-						executeStep(workMessage, postStep, workParameters, addedParameters, status);
+						executeStep(workMessage, postStep, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.POST_STEPS);
 					} catch (Exception e) {
 						logger.info("Exception running post work step: " + workMessage.getId() + " " + postStep.getName(), e);
 						status.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
@@ -63,7 +73,7 @@ public class WorkService {
 		}
 	}
 
-	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters, Map<String, String> addedParameters, Status status) {
+	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters, Map<String, String> addedParameters, Status status, final int currentStep, final int totalSteps, WorkState state) {
 		Map<String, String> stepParameters = step.getParameters();
 
 		Map<String, String> allParameters = new HashMap<>();
@@ -72,7 +82,7 @@ public class WorkService {
 		allParameters.putAll(addedParameters);
 
 		WorkStep workStep = pluginService.getWorkStep(step.getName());
-		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters, addedParameters, status);
+		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters, addedParameters, status, currentStep, totalSteps, state);
 
 		Iterable<WorkStepInterceptor> workStepInterceptors = pluginService.getWorkStepInterceptors();
 
