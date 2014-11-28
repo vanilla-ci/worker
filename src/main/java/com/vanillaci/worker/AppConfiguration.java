@@ -11,7 +11,14 @@ public class AppConfiguration {
 	@Value("${work.queue.name}")
 	private String workQueueName;
 
+	@Value("${home.directory}")
+	private String homeDirectory;
+
 	public String getQueueName() {
 		return workQueueName;
+	}
+
+	public String getHomeDirectory() {
+		return homeDirectory;
 	}
 }

@@ -1,10 +1,9 @@
 package com.vanillaci.worker.model;
 
-import com.google.common.collect.*;
 import com.vanillaci.plugins.*;
 import com.vanillaci.worker.service.*;
-import jdk.nashorn.internal.ir.annotations.*;
 
+import java.io.*;
 import java.util.*;
 
 /**
@@ -21,7 +20,9 @@ public class WorkContextImpl implements WorkContext {
 	private final int totalSteps;
 	private final WorkState state;
 
-	public WorkContextImpl(WorkMessage workMessage, WorkStep workStep, Map<String, String> parameters, Map<String, String> addedParameters, WorkService.Status currentStatus, int currentStep, int totalSteps, WorkState state) {
+	private final File workingDirectory;
+
+	public WorkContextImpl(WorkMessage workMessage, WorkStep workStep, Map<String, String> parameters, Map<String, String> addedParameters, WorkService.Status currentStatus, int currentStep, int totalSteps, WorkState state, File workingDirectory) {
 		this.workMessage = workMessage;
 		this.workStep = workStep;
 		this.parameters = parameters;
@@ -31,6 +32,8 @@ public class WorkContextImpl implements WorkContext {
 		this.currentStep = currentStep;
 		this.totalSteps = totalSteps;
 		this.state = state;
+
+		this.workingDirectory = workingDirectory;
 	}
 
 	@Override
@@ -99,5 +102,10 @@ public class WorkContextImpl implements WorkContext {
 	@Override
 	public WorkState getState() {
 		return state;
+	}
+
+	@Override
+	public File getWorkingDirectory() {
+		return workingDirectory;
 	}
 }

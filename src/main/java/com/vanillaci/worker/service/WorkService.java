@@ -1,12 +1,13 @@
 package com.vanillaci.worker.service;
 
-import com.google.common.collect.*;
 import com.vanillaci.plugins.*;
+import com.vanillaci.worker.*;
 import com.vanillaci.worker.model.*;
 import org.apache.log4j.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.stereotype.*;
 
+import java.io.*;
 import java.util.*;
 
 /**
@@ -19,6 +20,9 @@ public class WorkService {
 	@Autowired
 	private PluginService pluginService;
 
+	@Autowired
+	private AppConfiguration appConfiguration;
+
 	public void doWork(WorkMessage workMessage) {
 		logger.info("starting work: " + workMessage.getId());
 		try {
@@ -29,6 +33,8 @@ public class WorkService {
 			status.workStatus = WorkStatus.SUCCESS;
 			status.terminate = false;
 
+			final File workingDirectory = createWorkingDirectory(workMessage);
+
 			try {
 				List<WorkStepMessage> steps = workMessage.getSteps();
 
@@ -38,7 +44,7 @@ public class WorkService {
 				for (WorkStepMessage step : steps) {
 					currentStep++;
 					try {
-						executeStep(workMessage, step, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.STEPS);
+						executeStep(workMessage, step, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.STEPS, workingDirectory);
 					} catch (Exception e) {
 						logger.info("Exception running work step: " + workMessage.getId() + " " + step.getName(), e);
 						status.setWorkStatus(WorkStatus.ERROR);
@@ -61,7 +67,7 @@ public class WorkService {
 				for (WorkStepMessage postStep : postSteps) {
 					currentStep++;
 					try {
-						executeStep(workMessage, postStep, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.POST_STEPS);
+						executeStep(workMessage, postStep, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.POST_STEPS, workingDirectory);
 					} catch (Exception e) {
 						logger.info("Exception running post work step: " + workMessage.getId() + " " + postStep.getName(), e);
 						status.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
@@ -73,7 +79,26 @@ public class WorkService {
 		}
 	}
 
-	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters, Map<String, String> addedParameters, Status status, final int currentStep, final int totalSteps, WorkState state) {
+	private File createWorkingDirectory(WorkMessage workMessage) {
+		String directoryName = workMessage.getId();
+		directoryName = directoryName.replaceAll("[^A-Za-z0-9_-]", "_");
+
+		String homeDirectoryString = appConfiguration.getHomeDirectory();
+		File homeDirectory = new File(homeDirectoryString);
+
+		if(!homeDirectory.exists() && !homeDirectory.mkdirs()) {
+			throw new IllegalStateException("Unable to create home directory: " + homeDirectory.getAbsolutePath());
+		}
+
+		File workingDirectory = new File(homeDirectory, directoryName);
+		if(!workingDirectory.exists() && !workingDirectory.mkdirs()) {
+			throw new IllegalStateException("Unable to create working directory: " + homeDirectory.getAbsolutePath());
+		}
+
+		return workingDirectory;
+	}
+
+	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters, Map<String, String> addedParameters, Status status, final int currentStep, final int totalSteps, WorkState state, final File workingDirectory) {
 		Map<String, String> stepParameters = step.getParameters();
 
 		Map<String, String> allParameters = new HashMap<>();
@@ -82,7 +107,7 @@ public class WorkService {
 		allParameters.putAll(addedParameters);
 
 		WorkStep workStep = pluginService.getWorkStep(step.getName());
-		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters, addedParameters, status, currentStep, totalSteps, state);
+		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters, addedParameters, status, currentStep, totalSteps, state, workingDirectory);
 
 		Iterable<WorkStepInterceptor> workStepInterceptors = pluginService.getWorkStepInterceptors();
 
