@@ -1,6 +1,7 @@
 package com.vanillaci.worker.service;
 
 import com.google.common.collect.*;
+import com.vanillaci.plugins.*;
 import com.vanillaci.worker.*;
 import com.vanillaci.worker.model.*;
 import com.vanillaci.worker.testplugins.*;
@@ -45,9 +46,13 @@ public class WorkServiceTest extends BaseTest {
 
 		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
 
-		workService.doWork(workMessage);
+		WorkContext result = workService.doWork(workMessage);
 
 		Assert.assertNull(valueToSet.get());
+		Assert.assertTrue(result.getTerminate());
+		Assert.assertEquals("Only one build step should have run", 1, result.getCurrentStep());
+		Assert.assertEquals("No post build steps should have run since there aren't any", 0, result.getCurrentPostStep());
+		Assert.assertEquals("Status should not change even though terminate was set", WorkStatus.SUCCESS, result.getWorkStatus());
 	}
 
 
@@ -56,7 +61,12 @@ public class WorkServiceTest extends BaseTest {
 		Map<String, String> workParameters = new HashMap<>();
 
 		List<WorkStepMessage> steps = ImmutableList.of(
-			new WorkStepMessage(TerminateStep.class.getName(), ImmutableMap.of())
+			new WorkStepMessage(TerminateStep.class.getName(), ImmutableMap.of()),
+			new WorkStepMessage(MethodInvokeStep.class.getName(), ImmutableMap.of(
+				"className", getClass().getName(),
+				"methodName", "methodToInvoke",
+				"value", "this shouldn't be set"
+			))
 		);
 
 		List<WorkStepMessage> postSteps = ImmutableList.of(
@@ -69,9 +79,13 @@ public class WorkServiceTest extends BaseTest {
 
 		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
 
-		workService.doWork(workMessage);
+		WorkContext result = workService.doWork(workMessage);
 
 		Assert.assertEquals("all post build steps should be called", "this should be set", valueToSet.get());
+		Assert.assertTrue(result.getTerminate());
+		Assert.assertEquals("Only one build step should have run", 1, result.getCurrentStep());
+		Assert.assertEquals("One post build step should have run", 1, result.getCurrentPostStep());
+		Assert.assertEquals("Status should not change even though terminate was set", WorkStatus.SUCCESS, result.getWorkStatus());
 	}
 
 	@Test
@@ -93,9 +107,11 @@ public class WorkServiceTest extends BaseTest {
 
 		WorkMessage workMessage = new WorkMessage(getFullTestName(), workParameters, steps, postSteps);
 
-		workService.doWork(workMessage);
+		WorkContext result = workService.doWork(workMessage);
 
 		Assert.assertEquals("all post build steps should be called", "this should be set", valueToSet.get());
+		Assert.assertEquals("Status should be set since an exception was unhandled", WorkStatus.UNEXPECTED_ERROR, result.getWorkStatus());
+		Assert.assertEquals("All work steps should have run", postSteps.size(), result.getCurrentPostStep());
 	}
 
 	@Test
