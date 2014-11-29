@@ -113,12 +113,12 @@ public class WorkContextImpl implements WorkContext {
 	}
 
 	@Override
-	public boolean getTerminate() {
+	public boolean getTerminated() {
 		return terminated;
 	}
 
 	@Override
-	public void setTerminate(boolean terminated) {
+	public void setTerminated(boolean terminated) {
 		this.terminated = terminated;
 	}
 

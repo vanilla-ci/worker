@@ -48,7 +48,7 @@ public class WorkService {
 			workContext.incrementCurrentStep();
 			executeStep(workContext, workStepMessage);
 
-			if(workContext.getTerminate()) {
+			if(workContext.getTerminated()) {
 				return;
 			}
 		}
@@ -77,13 +77,13 @@ public class WorkService {
 
 		try {
 			executeBefores(workContext);
-			if(workContext.getWorkPhase() == WorkPhase.POST_STEPS || !workContext.getTerminate()) {
+			if(workContext.getWorkPhase() == WorkPhase.POST_STEPS || !workContext.getTerminated()) {
 				workStep.execute(workContext);
 			}
 		} catch (Exception e) {
 			logger.info("Unexpected error while executing work workContext.getWorkId(), step: " + workStepMessage.getName(), e);
 			workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
-			workContext.setTerminate(true);
+			workContext.setTerminated(true);
 		} finally {
 			executeAfters(workContext);
 		}
@@ -99,7 +99,7 @@ public class WorkService {
 			} catch (Exception e) {
 				logger.info("Unexpected error while executing work before step workContext.getWorkId(), interceptor: " + workStepInterceptor.getClass().getName(), e);
 				workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
-				workContext.setTerminate(true);
+				workContext.setTerminated(true);
 			}
 		}
 	}
@@ -114,7 +114,7 @@ public class WorkService {
 			} catch (Exception e) {
 				logger.info("Unexpected error while executing work after step workContext.getWorkId(), interceptor: " + workStepInterceptor.getClass().getName(), e);
 				workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
-				workContext.setTerminate(true);
+				workContext.setTerminated(true);
 			}
 		}
 	}
