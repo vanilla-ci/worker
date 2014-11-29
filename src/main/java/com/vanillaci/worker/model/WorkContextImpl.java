@@ -1,7 +1,6 @@
 package com.vanillaci.worker.model;
 
 import com.vanillaci.plugins.*;
-import com.vanillaci.worker.service.*;
 
 import java.io.*;
 import java.util.*;
@@ -11,29 +10,39 @@ import java.util.*;
  */
 public class WorkContextImpl implements WorkContext {
 	private final WorkMessage workMessage;
-	private final Map<String, String> parameters;
-	private final Map<String, String> addedParameters;
-	private WorkService.Status workStatus;
-	private WorkStep workStep;
-
-	private final int currentStep;
-	private final int totalSteps;
-	private final WorkState state;
-
 	private final File workingDirectory;
 
-	public WorkContextImpl(WorkMessage workMessage, WorkStep workStep, Map<String, String> parameters, Map<String, String> addedParameters, WorkService.Status currentStatus, int currentStep, int totalSteps, WorkState state, File workingDirectory) {
+	private final Map<String, String> addedParameters;
+
+	private WorkStep workStep;
+	private WorkStepMessage workStepMessage;
+
+	private int currentWorkStep;
+	private final int numberWorkSteps;
+
+	private int currentPostWorkStep;
+	private final int numberPostWorkSteps;
+	private WorkPhase workPhase;
+
+	private boolean terminated;
+	private WorkStatus workStatus;
+
+	public WorkContextImpl(WorkMessage workMessage, File workingDirectory) {
 		this.workMessage = workMessage;
-		this.workStep = workStep;
-		this.parameters = parameters;
-		this.addedParameters = addedParameters;
-		this.workStatus = currentStatus;
-
-		this.currentStep = currentStep;
-		this.totalSteps = totalSteps;
-		this.state = state;
-
 		this.workingDirectory = workingDirectory;
+
+		this.addedParameters = new HashMap<>();
+
+		this.currentWorkStep = 0;
+		this.numberWorkSteps = workMessage.getSteps() != null ? workMessage.getSteps().size() : 0;
+
+		this.currentPostWorkStep = 0;
+		this.numberPostWorkSteps = workMessage.getSteps() != null ? workMessage.getPostSteps().size() : 0;
+
+		workPhase = WorkPhase.STEPS;
+
+		terminated = false;
+		workStatus = WorkStatus.SUCCESS;
 	}
 
 	@Override
@@ -41,14 +50,28 @@ public class WorkContextImpl implements WorkContext {
 		return workMessage.getId();
 	}
 
+	public WorkMessage getWorkMessage() {
+		return workMessage;
+	}
+
 	@Override
-	public Map<String, String> getParameters() {
-		return parameters;
+	public String getParameter(String parameterName) {
+		String result;
+
+		result = addedParameters.get(parameterName);
+		if(result == null && getWorkStep() != null && getWorkStepMessage().getParameters() != null) {
+			result = getWorkStepMessage().getParameters().get(parameterName);
+		}
+
+		if(result == null && workMessage.getParameters() != null) {
+			result = workMessage.getParameters().get(parameterName);
+		}
+
+		return result;
 	}
 
 	@Override
 	public void addParameter(String parameterName, String parameterValue) {
-		parameters.put(parameterName, parameterValue);
 		addedParameters.put(parameterName, parameterValue);
 	}
 
@@ -62,46 +85,78 @@ public class WorkContextImpl implements WorkContext {
 		this.workStep = workStep;
 	}
 
+	public WorkStepMessage getWorkStepMessage() {
+		return workStepMessage;
+	}
+
+	public void setWorkStepMessage(WorkStepMessage workStepMessage) {
+		this.workStepMessage = workStepMessage;
+	}
+
 	@Override
 	public WorkStatus getWorkStatus() {
-		return workStatus.getWorkStatus();
+		return workStatus;
 	}
 
 	@Override
 	public void setWorkStatus(WorkStatus workStatus) {
-		if(getWorkStatus().isLessSevereThan(workStatus)) {
-			this.workStatus.setWorkStatus(workStatus);
+		if(workStatus != null && this.workStatus.isLessSevereThan(workStatus)) {
+			overrideWorkStatus(workStatus);
 		}
 	}
 
 	@Override
 	public void overrideWorkStatus(WorkStatus workStatus) {
-		this.workStatus.setWorkStatus(workStatus);
+		if(workStatus != null) {
+			this.workStatus = workStatus;
+		}
 	}
 
 	@Override
 	public boolean getTerminate() {
-		return workStatus.getTerminate();
+		return terminated;
 	}
 
 	@Override
-	public void setTerminate(boolean terminate) {
-		workStatus.setTerminate(terminate);
+	public void setTerminate(boolean terminated) {
+		this.terminated = terminated;
 	}
 
 	@Override
 	public int getCurrentStep() {
-		return currentStep;
+		return currentWorkStep;
+	}
+
+	public void incrementCurrentStep() {
+		currentWorkStep++;
 	}
 
 	@Override
 	public int getTotalSteps() {
-		return totalSteps;
+		return numberWorkSteps;
 	}
 
 	@Override
-	public WorkState getState() {
-		return state;
+	public int getCurrentPostStep() {
+		return currentPostWorkStep;
+	}
+
+	public void incrementCurrentPostStep() {
+		currentPostWorkStep++;
+	}
+
+	@Override
+	public int getTotalPostSteps() {
+		return numberPostWorkSteps;
+	}
+
+	@Override
+	public WorkPhase getWorkPhase() {
+		return workPhase;
+	}
+
+	public void setWorkPhase(WorkPhase workPhase) {
+		this.workPhase = workPhase;
 	}
 
 	@Override

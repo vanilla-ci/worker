@@ -23,60 +23,104 @@ public class WorkService {
 	@Autowired
 	private AppConfiguration appConfiguration;
 
-	public void doWork(WorkMessage workMessage) {
-		logger.info("starting work: " + workMessage.getId());
+	public WorkContext doWork(WorkMessage workMessage) {
+		final File workingDirectory = createWorkingDirectory(workMessage);
+		WorkContextImpl workContext = new WorkContextImpl(workMessage, workingDirectory);
+
+		// Execute Work Lifecycle
+		started(workContext);
+		runSteps(workContext);
+		runPostSteps(workContext);
+		finished(workContext);
+
+		return workContext;
+	}
+
+	private void started(WorkContextImpl workContext) {
+		logger.info("Started work " + workContext.getWorkId());
+	}
+
+	private void runSteps(WorkContextImpl workContext) {
+		workContext.setWorkPhase(WorkPhase.STEPS);
+
+		List<WorkStepMessage> stepMessages = workContext.getWorkMessage().getSteps();
+		for (WorkStepMessage workStepMessage : stepMessages) {
+			workContext.incrementCurrentStep();
+			executeStep(workContext, workStepMessage);
+
+			if(workContext.getTerminate()) {
+				return;
+			}
+		}
+	}
+
+	private void runPostSteps(WorkContextImpl workContext) {
+		workContext.setWorkPhase(WorkPhase.POST_STEPS);
+
+		List<WorkStepMessage> postStepMessages = workContext.getWorkMessage().getPostSteps();
+		for (WorkStepMessage postWorkStepMessage : postStepMessages) {
+			workContext.incrementCurrentPostStep();
+			executeStep(workContext, postWorkStepMessage);
+		}
+	}
+
+	private void executeStep(WorkContextImpl workContext, WorkStepMessage workStepMessage) {
+		WorkStep workStep = pluginService.getWorkStep(workStepMessage.getName());
+		workContext.setWorkStepMessage(workStepMessage);
+		workContext.setWorkStep(workStep);
+
+		logger.info("Executing step " +
+			"(" + workContext.getCurrentStep() + "/" + workContext.getTotalSteps() + ") " +
+			"(" + workContext.getCurrentPostStep() + "/" + workContext.getTotalPostSteps() + ") " +
+			workStepMessage.getName() + " for work: " + workContext.getWorkId()
+		);
+
 		try {
-			Map<String, String> workParameters = workMessage.getParameters();
-			Map<String, String> addedParameters = new HashMap<>();
-
-			Status status = new Status();
-			status.workStatus = WorkStatus.SUCCESS;
-			status.terminate = false;
-
-			final File workingDirectory = createWorkingDirectory(workMessage);
-
-			try {
-				List<WorkStepMessage> steps = workMessage.getSteps();
-
-				int currentStep = 0;
-				final int totalSteps = steps.size();
-
-				for (WorkStepMessage step : steps) {
-					currentStep++;
-					try {
-						executeStep(workMessage, step, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.STEPS, workingDirectory);
-					} catch (Exception e) {
-						logger.info("Exception running work step: " + workMessage.getId() + " " + step.getName(), e);
-						status.setWorkStatus(WorkStatus.ERROR);
-						status.setTerminate(true);
-					}
-
-					if(status.terminate) {
-						logger.info("Terminating");
-						break;
-					}
-				}
-			} finally {
-				logger.info("Running post steps: " + workMessage.getId());
-
-				List<WorkStepMessage> postSteps = workMessage.getPostSteps();
-
-				int currentStep = 0;
-				final int totalSteps = postSteps.size();
-
-				for (WorkStepMessage postStep : postSteps) {
-					currentStep++;
-					try {
-						executeStep(workMessage, postStep, workParameters, addedParameters, status, currentStep, totalSteps, WorkState.POST_STEPS, workingDirectory);
-					} catch (Exception e) {
-						logger.info("Exception running post work step: " + workMessage.getId() + " " + postStep.getName(), e);
-						status.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
-					}
-				}
+			executeBefores(workContext);
+			if(workContext.getWorkPhase() == WorkPhase.POST_STEPS || !workContext.getTerminate()) {
+				workStep.execute(workContext);
 			}
 		} catch (Exception e) {
-			logger.info("Exception running work: " + workMessage.getId(), e);
+			logger.info("Unexpected error while executing work workContext.getWorkId(), step: " + workStepMessage.getName(), e);
+			workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
+			workContext.setTerminate(true);
+		} finally {
+			executeAfters(workContext);
 		}
+	}
+
+	private void executeBefores(WorkContextImpl workContext) {
+		logger.info("Running befores for " + workContext.getWorkId() + " step " + workContext.getWorkStepMessage().getName());
+
+		Iterable<WorkStepInterceptor> workStepInterceptors = pluginService.getWorkStepInterceptors();
+		for (WorkStepInterceptor workStepInterceptor : workStepInterceptors) {
+			try {
+				workStepInterceptor.before(workContext);
+			} catch (Exception e) {
+				logger.info("Unexpected error while executing work before step workContext.getWorkId(), interceptor: " + workStepInterceptor.getClass().getName(), e);
+				workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
+				workContext.setTerminate(true);
+			}
+		}
+	}
+
+	private void executeAfters(WorkContextImpl workContext) {
+		logger.info("Running afters for " + workContext.getWorkId() + " step " + workContext.getWorkStepMessage().getName());
+
+		Iterable<WorkStepInterceptor> workStepInterceptors = pluginService.getWorkStepInterceptors();
+		for (WorkStepInterceptor workStepInterceptor : workStepInterceptors) {
+			try {
+				workStepInterceptor.after(workContext);
+			} catch (Exception e) {
+				logger.info("Unexpected error while executing work after step workContext.getWorkId(), interceptor: " + workStepInterceptor.getClass().getName(), e);
+				workContext.setWorkStatus(WorkStatus.UNEXPECTED_ERROR);
+				workContext.setTerminate(true);
+			}
+		}
+	}
+
+	private void finished(WorkContextImpl workContext) {
+		logger.info("Completed work " + workContext.getWorkId());
 	}
 
 	private File createWorkingDirectory(WorkMessage workMessage) {
@@ -95,91 +139,7 @@ public class WorkService {
 			throw new IllegalStateException("Unable to create working directory: " + homeDirectory.getAbsolutePath());
 		}
 
+		logger.info("created working directory for " + workMessage.getId() + " at: " + workingDirectory.getAbsolutePath());
 		return workingDirectory;
-	}
-
-	private void executeStep(WorkMessage workMessage, WorkStepMessage step, Map<String, String> workParameters, Map<String, String> addedParameters, Status status, final int currentStep, final int totalSteps, WorkState state, final File workingDirectory) {
-		Map<String, String> stepParameters = step.getParameters();
-
-		Map<String, String> allParameters = new HashMap<>();
-		allParameters.putAll(workParameters);
-		allParameters.putAll(stepParameters);
-		allParameters.putAll(addedParameters);
-
-		WorkStep workStep = pluginService.getWorkStep(step.getName());
-		WorkContext workContext = new WorkContextImpl(workMessage, workStep, allParameters, addedParameters, status, currentStep, totalSteps, state, workingDirectory);
-
-		Iterable<WorkStepInterceptor> workStepInterceptors = pluginService.getWorkStepInterceptors();
-
-		runBefores(workContext, workStepInterceptors);
-
-		try {
-			// Make sure the before didn't terminate the work
-			if(workContext.getState() == WorkState.POST_STEPS || !workContext.getTerminate()) {
-				// Since the befores are allowed to change the step that is actually executed, make sure we execute that one.
-				WorkStep overwrittenStep = workContext.getWorkStep();
-				if(overwrittenStep != workStep) {
-					logger.info("Work step overwritten: " + workMessage.getId());
-				}
-
-				if(overwrittenStep != null) {
-					overwrittenStep.execute(workContext);
-				}
-			}
-		} catch (Exception e) {
-			workContext.setWorkStatus(WorkStatus.ERROR);
-			workContext.setTerminate(true);
-			throw e;
-		} finally {
-			runAfters(workContext, workStepInterceptors);
-		}
-	}
-
-	private void runBefores(WorkContext workContext, Iterable<WorkStepInterceptor> workStepInterceptors) {
-		for (WorkStepInterceptor workStepInterceptor : workStepInterceptors) {
-			try {
-				workStepInterceptor.before(workContext);
-			} catch (Exception e) {
-				logger.info("Exception running 'before' " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
-				workContext.setWorkStatus(WorkStatus.ERROR);
-				workContext.setTerminate(true);
-			}
-		}
-	}
-
-	private void runAfters(WorkContext workContext, Iterable<WorkStepInterceptor> workStepInterceptors) {
-		for (WorkStepInterceptor workStepInterceptor : workStepInterceptors) {
-			try {
-				workStepInterceptor.after(workContext);
-			} catch (Exception e) {
-				logger.info("Exception running 'after' " + workStepInterceptor.getClass().getName() + " for step " + workContext.getWorkStep().getClass().getName() + ": " + workContext.getWorkId(), e);
-				workContext.setWorkStatus(WorkStatus.ERROR);
-				workContext.setTerminate(true);
-			}
-		}
-	}
-
-	/**
-	 * Mutable object representing the work's current status.
-	 */
-	public static class Status {
-		private WorkStatus workStatus;
-		private boolean terminate;
-
-		public WorkStatus getWorkStatus() {
-			return workStatus;
-		}
-
-		public void setWorkStatus(WorkStatus workStatus) {
-			this.workStatus = workStatus;
-		}
-
-		public boolean getTerminate() {
-			return terminate;
-		}
-
-		public void setTerminate(boolean terminate) {
-			this.terminate = terminate;
-		}
 	}
 }

@@ -3,7 +3,6 @@ package com.vanillaci.worker.testplugins;
 import com.vanillaci.plugins.*;
 
 import java.lang.reflect.*;
-import java.util.*;
 
 /**
  * Created by joeljohnson on 11/27/14.
@@ -11,10 +10,9 @@ import java.util.*;
 public class MethodInvokeStep implements WorkStep {
 	@Override
 	public void execute(WorkContext workContext) {
-		Map<String, String> parameters = workContext.getParameters();
-		String className = parameters.get("className");
-		String methodName = parameters.get("methodName");
-		String value = parameters.get("value");
+		String className = workContext.getParameter("className");
+		String methodName = workContext.getParameter("methodName");
+		String value = workContext.getParameter("value");
 
 		try {
 			Class<?> loadedClass = Class.forName(className);
