@@ -1,10 +1,7 @@
 package com.vanillaci.worker;
 
 import com.vanillaci.worker.receivers.*;
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
@@ -25,12 +22,12 @@ public class WorkerApplication {
 	}
 
 	@Bean
-	TopicExchange exchange() {
-		return new TopicExchange("vanilla-ci-exchange");
+	DirectExchange exchange() {
+		return new DirectExchange("vanilla-ci-exchange");
 	}
 
 	@Bean
-	Binding binding(Queue queue, TopicExchange exchange, AppConfiguration appConfiguration) {
+	Binding binding(Queue queue, DirectExchange exchange, AppConfiguration appConfiguration) {
 		return BindingBuilder.bind(queue).to(exchange).with(appConfiguration.getQueueName());
 	}
 
