@@ -14,11 +14,18 @@ public class AppConfiguration {
 	@Value("${home.directory}")
 	private String homeDirectory;
 
+	@Value("${number.concurrent.work}")
+	private int numberConcurrentWork;
+
 	public String getQueueName() {
 		return workQueueName;
 	}
 
 	public String getHomeDirectory() {
 		return homeDirectory;
+	}
+
+	public int getNumberConcurrentWork() {
+		return numberConcurrentWork;
 	}
 }

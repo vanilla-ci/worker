@@ -40,6 +40,7 @@ public class WorkerApplication {
 		container.setConnectionFactory(connectionFactory);
 		container.setQueueNames(appConfiguration.getQueueName());
 		container.setMessageListener(listenerAdapter);
+		container.setMaxConcurrentConsumers(appConfiguration.getNumberConcurrentWork());
 		return container;
 	}
 
