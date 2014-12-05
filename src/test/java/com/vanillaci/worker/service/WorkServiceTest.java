@@ -49,7 +49,7 @@ public class WorkServiceTest extends BaseTest {
 		WorkContext result = workService.doWork(workMessage);
 
 		Assert.assertNull(valueToSet.get());
-		Assert.assertTrue(result.getTerminate());
+		Assert.assertTrue(result.getTerminated());
 		Assert.assertEquals("Only one build step should have run", 1, result.getCurrentStep());
 		Assert.assertEquals("No post build steps should have run since there aren't any", 0, result.getCurrentPostStep());
 		Assert.assertEquals("Status should not change even though terminate was set", WorkStatus.SUCCESS, result.getWorkStatus());
@@ -82,7 +82,7 @@ public class WorkServiceTest extends BaseTest {
 		WorkContext result = workService.doWork(workMessage);
 
 		Assert.assertEquals("all post build steps should be called", "this should be set", valueToSet.get());
-		Assert.assertTrue(result.getTerminate());
+		Assert.assertTrue(result.getTerminated());
 		Assert.assertEquals("Only one build step should have run", 1, result.getCurrentStep());
 		Assert.assertEquals("One post build step should have run", 1, result.getCurrentPostStep());
 		Assert.assertEquals("Status should not change even though terminate was set", WorkStatus.SUCCESS, result.getWorkStatus());

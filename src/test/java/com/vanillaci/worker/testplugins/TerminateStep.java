@@ -10,6 +10,6 @@ import com.vanillaci.worker.model.*;
 public class TerminateStep implements WorkStep {
 	@Override
 	public void execute(WorkContext workContext) {
-		workContext.setTerminate(true);
+		workContext.setTerminated(true);
 	}
 }

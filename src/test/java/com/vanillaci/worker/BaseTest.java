@@ -12,7 +12,7 @@ import org.springframework.test.context.junit4.*;
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringApplicationConfiguration(classes = WorkerApplication.class)
 @ActiveProfiles(profiles="test")
-public class BaseTest {
+public abstract class BaseTest {
 	@Rule
 	public TestNameRule testNameRule = new TestNameRule();
 
